@@ -9,6 +9,194 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      equipment: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          location_id: string | null
+          model: string
+          name: string
+          purchase_date: string | null
+          serial_number: string
+          specifications: Json | null
+          status: string
+          updated_at: string
+          warranty_expiry: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model: string
+          name: string
+          purchase_date?: string | null
+          serial_number: string
+          specifications?: Json | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          model?: string
+          name?: string
+          purchase_date?: string | null
+          serial_number?: string
+          specifications?: Json | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_equipment_location"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_maintenance: {
+        Row: {
+          created_at: string
+          description: string | null
+          equipment_id: string
+          id: string
+          maintenance_date: string
+          maintenance_type: string
+          next_maintenance_date: string | null
+          performed_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          equipment_id: string
+          id?: string
+          maintenance_date?: string
+          maintenance_type: string
+          next_maintenance_date?: string | null
+          performed_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          equipment_id?: string
+          id?: string
+          maintenance_date?: string
+          maintenance_type?: string
+          next_maintenance_date?: string | null
+          performed_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_maintenance_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      movement_history: {
+        Row: {
+          created_at: string
+          equipment_id: string
+          from_location_id: string | null
+          id: string
+          moved_at: string
+          moved_by_user_id: string | null
+          notes: string | null
+          reason: string | null
+          to_location_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          equipment_id: string
+          from_location_id?: string | null
+          id?: string
+          moved_at?: string
+          moved_by_user_id?: string | null
+          notes?: string | null
+          reason?: string | null
+          to_location_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          equipment_id?: string
+          from_location_id?: string | null
+          id?: string
+          moved_at?: string
+          moved_by_user_id?: string | null
+          notes?: string | null
+          reason?: string | null
+          to_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movement_history_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_history_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_history_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

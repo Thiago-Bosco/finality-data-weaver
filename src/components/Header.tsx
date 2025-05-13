@@ -3,16 +3,18 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Package, BarChart3, Settings, Users, ShoppingCart } from "lucide-react";
+import { Menu, Package, BarChart3, Settings, Users, ShoppingCart, ServerIcon } from "lucide-react";
+import { UserMenu } from "./UserMenu";
 
 const Header = () => {
   const [open, setOpen] = useState(false);
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: <BarChart3 className="h-5 w-5 mr-2" /> },
-    { name: "Produtos", href: "/products", icon: <Package className="h-5 w-5 mr-2" /> },
+    { name: "Equipamentos", href: "/products", icon: <ServerIcon className="h-5 w-5 mr-2" /> },
+    { name: "Localizações", href: "/locations", icon: <Package className="h-5 w-5 mr-2" /> },
     { name: "Fornecedores", href: "/suppliers", icon: <Users className="h-5 w-5 mr-2" /> },
-    { name: "Pedidos", href: "/orders", icon: <ShoppingCart className="h-5 w-5 mr-2" /> },
+    { name: "Movimentações", href: "/movements", icon: <ShoppingCart className="h-5 w-5 mr-2" /> },
     { name: "Configurações", href: "/settings", icon: <Settings className="h-5 w-5 mr-2" /> }
   ];
 
@@ -65,6 +67,9 @@ const Header = () => {
             </Link>
           ))}
         </nav>
+        <div className="ml-auto">
+          <UserMenu />
+        </div>
       </div>
     </header>
   );
