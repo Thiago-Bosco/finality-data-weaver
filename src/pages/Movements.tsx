@@ -79,7 +79,27 @@ const Movements = () => {
       }
 
       if (data) {
-        setMovements(data);
+        // Type-safe handling of the response data
+        const safeMovements: Movement[] = data.map(item => ({
+          id: item.id,
+          equipment_id: item.equipment_id,
+          from_location_id: item.from_location_id,
+          to_location_id: item.to_location_id,
+          moved_at: item.moved_at,
+          reason: item.reason,
+          notes: item.notes,
+          equipment: {
+            name: item.equipment?.name || 'Unknown',
+            serial_number: item.equipment?.serial_number || 'Unknown'
+          },
+          // Handle potential errors or missing data in the relationships
+          from_location: item.from_location && typeof item.from_location === 'object' ? 
+            { name: item.from_location.name || 'Unknown' } : null,
+          to_location: item.to_location && typeof item.to_location === 'object' ? 
+            { name: item.to_location.name || 'Unknown' } : null,
+        }));
+        
+        setMovements(safeMovements);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar movimentações: ${error.message}`);

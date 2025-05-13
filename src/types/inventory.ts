@@ -69,6 +69,16 @@ export interface Movement {
   notes?: string | null;
   moved_at: string;
   created_at: string;
+  equipment: {
+    name: string;
+    serial_number: string;
+  };
+  from_location: {
+    name: string;
+  } | null;
+  to_location: {
+    name: string;
+  } | null;
 }
 
 export interface Maintenance {
