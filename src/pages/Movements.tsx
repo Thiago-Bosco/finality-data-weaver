@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,12 +63,13 @@ const Movements = () => {
   async function fetchMovements() {
     try {
       setLoading(true);
+      // Fix the query to use explicit column names for the relationships
       const { data, error } = await supabase
         .from("movement_history")
         .select(`
           *,
           equipment:equipment(name, serial_number),
-          from_location:locations(name),
+          from_location:locations!from_location_id(name),
           to_location:locations!to_location_id(name)
         `)
         .order("moved_at", { ascending: false });
@@ -92,11 +92,15 @@ const Movements = () => {
             name: item.equipment?.name || 'Unknown',
             serial_number: item.equipment?.serial_number || 'Unknown'
           },
-          // Handle potential errors or missing data in the relationships
-          from_location: item.from_location ? 
-            { name: item.from_location.name || 'Unknown' } : null,
-          to_location: item.to_location ? 
-            { name: item.to_location.name || 'Unknown' } : null,
+          // Fix the handling of from_location and to_location relationships
+          from_location: item.from_location ? {
+            name: typeof item.from_location === 'object' && item.from_location !== null ? 
+              (item.from_location as any).name || 'Unknown' : 'Unknown'
+          } : null,
+          to_location: item.to_location ? {
+            name: typeof item.to_location === 'object' && item.to_location !== null ? 
+              (item.to_location as any).name || 'Unknown' : 'Unknown'
+          } : null,
         }));
         
         setMovements(safeMovements);

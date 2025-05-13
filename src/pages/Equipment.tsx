@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ interface Equipment {
   location_id: string | null;
   location?: {
     name: string;
-  };
+  } | null;
 }
 
 interface Location {
@@ -108,9 +107,15 @@ const Equipment = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Fix the location_id handling for empty selection
+      const submissionData = {
+        ...formData,
+        location_id: formData.location_id === "none" || formData.location_id === "" ? null : formData.location_id
+      };
+
       const { data, error } = await supabase
         .from("equipment")
-        .insert([formData])
+        .insert([submissionData])
         .select();
 
       if (error) {
@@ -283,7 +288,7 @@ const Equipment = () => {
                         <SelectValue placeholder="Selecione uma localização" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhuma</SelectItem>
+                        <SelectItem value="none">Sem localização</SelectItem>
                         {locations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.name}
