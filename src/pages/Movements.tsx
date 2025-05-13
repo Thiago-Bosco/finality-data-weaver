@@ -93,9 +93,9 @@ const Movements = () => {
             serial_number: item.equipment?.serial_number || 'Unknown'
           },
           // Handle potential errors or missing data in the relationships
-          from_location: item.from_location && typeof item.from_location === 'object' ? 
+          from_location: item.from_location ? 
             { name: item.from_location.name || 'Unknown' } : null,
-          to_location: item.to_location && typeof item.to_location === 'object' ? 
+          to_location: item.to_location ? 
             { name: item.to_location.name || 'Unknown' } : null,
         }));
         
@@ -338,7 +338,7 @@ const Movements = () => {
                         <SelectValue placeholder="Selecione uma localização" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sem localização</SelectItem>
+                        <SelectItem value="none">Sem localização</SelectItem>
                         {locations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.name}
