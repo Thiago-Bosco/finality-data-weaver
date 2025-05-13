@@ -12,7 +12,7 @@ interface ProductCardProps {
 const ProductCard = ({ product }: ProductCardProps) => {
   const getStockStatus = () => {
     if (product.stock === 0) return { label: "Sem Estoque", variant: "destructive" as const };
-    if (product.stock <= 5) return { label: "Estoque Baixo", variant: "warning" as const };
+    if (product.stock <= 5) return { label: "Estoque Baixo", variant: "secondary" as const };
     return { label: `${product.stock} em estoque`, variant: "outline" as const };
   };
 
