@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { MapPin, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import SearchAndFilter from "@/components/SearchAndFilter";
 
 interface Location {
   id: string;
@@ -23,6 +23,7 @@ interface Location {
 
 const Locations = () => {
   const [locations, setLocations] = useState<Location[]>([]);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -47,6 +48,7 @@ const Locations = () => {
 
       if (data) {
         setLocations(data);
+        setFilteredLocations(data);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar localizações: ${error.message}`);
@@ -89,6 +91,31 @@ const Locations = () => {
     } catch (error: any) {
       toast.error(`Erro ao adicionar localização: ${error.message}`);
     }
+  };
+
+  // Nova funcionalidade de pesquisa
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setFilteredLocations(locations);
+      return;
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const results = locations.filter(location => 
+      location.name.toLowerCase().includes(normalizedQuery) || 
+      (location.address && location.address.toLowerCase().includes(normalizedQuery)) || 
+      (location.contact_person && location.contact_person.toLowerCase().includes(normalizedQuery)) ||
+      (location.contact_email && location.contact_email.toLowerCase().includes(normalizedQuery)) ||
+      (location.contact_phone && location.contact_phone.toLowerCase().includes(normalizedQuery))
+    );
+
+    setFilteredLocations(results);
+  };
+
+  // Como não temos muitas categorias para filtrar em localizações,
+  // implementaremos apenas a pesquisa de texto
+  const handleFilter = () => {
+    // Implementação futura se necessário
   };
 
   return (
@@ -184,6 +211,12 @@ const Locations = () => {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Localizações</CardTitle>
+          <SearchAndFilter 
+            onSearch={handleSearch} 
+            onFilter={handleFilter}
+            searchPlaceholder="Pesquisar localizações..."
+            className="mt-2"
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -203,14 +236,14 @@ const Locations = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {locations.length === 0 ? (
+                  {filteredLocations.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                        Nenhuma localização encontrada. Adicione uma nova localização.
+                        Nenhuma localização encontrada. Ajuste os critérios de pesquisa ou adicione uma nova localização.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    locations.map((location) => (
+                    filteredLocations.map((location) => (
                       <TableRow key={location.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center">

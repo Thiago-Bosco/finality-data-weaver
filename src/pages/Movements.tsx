@@ -13,6 +13,7 @@ import { Plus, MoveRight, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
+import SearchAndFilter from "@/components/SearchAndFilter";
 
 interface Movement {
   id: string;
@@ -48,6 +49,7 @@ interface Location {
 
 const Movements = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [filteredMovements, setFilteredMovements] = useState<Movement[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +106,7 @@ const Movements = () => {
         }));
         
         setMovements(safeMovements);
+        setFilteredMovements(safeMovements);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar movimentações: ${error.message}`);
@@ -271,6 +274,69 @@ const Movements = () => {
     toast.success("Exportação concluída");
   };
 
+  // Nova funcionalidade de pesquisa
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setFilteredMovements(movements);
+      return;
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const results = movements.filter(movement => 
+      movement.equipment.name.toLowerCase().includes(normalizedQuery) ||
+      movement.equipment.serial_number.toLowerCase().includes(normalizedQuery) ||
+      (movement.from_location?.name && movement.from_location.name.toLowerCase().includes(normalizedQuery)) ||
+      (movement.to_location?.name && movement.to_location.name.toLowerCase().includes(normalizedQuery)) ||
+      (movement.reason && movement.reason.toLowerCase().includes(normalizedQuery)) ||
+      format(new Date(movement.moved_at), "dd/MM/yyyy").includes(normalizedQuery)
+    );
+
+    setFilteredMovements(results);
+  };
+
+  // Nova funcionalidade de filtros
+  const handleFilter = (filters: Record<string, string>) => {
+    let results = [...movements];
+
+    if (filters.from_location && filters.from_location !== "") {
+      if (filters.from_location === "none") {
+        results = results.filter(movement => !movement.from_location_id);
+      } else {
+        results = results.filter(movement => movement.from_location_id === filters.from_location);
+      }
+    }
+
+    if (filters.to_location && filters.to_location !== "") {
+      if (filters.to_location === "none") {
+        results = results.filter(movement => !movement.to_location_id);
+      } else {
+        results = results.filter(movement => movement.to_location_id === filters.to_location);
+      }
+    }
+
+    setFilteredMovements(results);
+  };
+
+  // Opções para os filtros
+  const filterFields = [
+    {
+      name: "from_location",
+      label: "Origem",
+      options: [
+        { label: "Sem origem", value: "none" },
+        ...locations.map(loc => ({ label: loc.name, value: loc.id }))
+      ]
+    },
+    {
+      name: "to_location",
+      label: "Destino",
+      options: [
+        { label: "Sem destino", value: "none" },
+        ...locations.map(loc => ({ label: loc.name, value: loc.id }))
+      ]
+    }
+  ];
+
   return (
     <div className="container py-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -389,6 +455,13 @@ const Movements = () => {
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Movimentações</CardTitle>
+          <SearchAndFilter 
+            onSearch={handleSearch} 
+            onFilter={handleFilter}
+            filterFields={filterFields}
+            searchPlaceholder="Pesquisar movimentações..."
+            className="mt-2"
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -409,14 +482,14 @@ const Movements = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movements.length === 0 ? (
+                  {filteredMovements.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                        Nenhuma movimentação registrada.
+                        Nenhuma movimentação encontrada. Ajuste os critérios de pesquisa ou registre uma nova movimentação.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    movements.map((movement) => (
+                    filteredMovements.map((movement) => (
                       <TableRow key={movement.id}>
                         <TableCell>
                           <div>

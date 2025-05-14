@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
 import { Textarea } from "@/components/ui/textarea";
+import SearchAndFilter from "@/components/SearchAndFilter";
 
 interface Equipment {
   id: string;
@@ -40,6 +40,7 @@ interface Location {
 
 const Equipment = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -74,6 +75,7 @@ const Equipment = () => {
 
       if (data) {
         setEquipment(data);
+        setFilteredEquipment(data);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar equipamentos: ${error.message}`);
@@ -217,6 +219,80 @@ const Equipment = () => {
     document.body.removeChild(link);
     toast.success("Exportação concluída");
   };
+
+  // Nova funcionalidade de pesquisa
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setFilteredEquipment(equipment);
+      return;
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const results = equipment.filter(item => 
+      item.name.toLowerCase().includes(normalizedQuery) || 
+      item.serial_number.toLowerCase().includes(normalizedQuery) || 
+      item.model.toLowerCase().includes(normalizedQuery) ||
+      item.supplier?.toLowerCase().includes(normalizedQuery) || 
+      item.invoice_number?.toLowerCase().includes(normalizedQuery) ||
+      item.location?.name?.toLowerCase().includes(normalizedQuery)
+    );
+
+    setFilteredEquipment(results);
+  };
+
+  // Nova funcionalidade de filtros
+  const handleFilter = (filters: Record<string, string>) => {
+    let results = [...equipment];
+
+    if (filters.category && filters.category !== "") {
+      results = results.filter(item => item.category === filters.category);
+    }
+
+    if (filters.status && filters.status !== "") {
+      results = results.filter(item => item.status === filters.status);
+    }
+
+    if (filters.location && filters.location !== "") {
+      if (filters.location === "none") {
+        results = results.filter(item => !item.location_id);
+      } else {
+        results = results.filter(item => item.location_id === filters.location);
+      }
+    }
+
+    setFilteredEquipment(results);
+  };
+
+  // Opções para os filtros
+  const filterFields = [
+    {
+      name: "category",
+      label: "Categoria",
+      options: [
+        { label: "Servidor", value: "server" },
+        { label: "Equipamento de Rede", value: "network" },
+        { label: "Armazenamento", value: "storage" },
+        { label: "Outro", value: "other" }
+      ]
+    },
+    {
+      name: "status",
+      label: "Status",
+      options: [
+        { label: "Ativo", value: "active" },
+        { label: "Em Manutenção", value: "maintenance" },
+        { label: "Inativo", value: "inactive" }
+      ]
+    },
+    {
+      name: "location",
+      label: "Localização",
+      options: [
+        { label: "Sem localização", value: "none" },
+        ...locations.map(loc => ({ label: loc.name, value: loc.id }))
+      ]
+    }
+  ];
 
   return (
     <div className="container py-6 space-y-6">
@@ -410,6 +486,13 @@ const Equipment = () => {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Equipamentos</CardTitle>
+          <SearchAndFilter 
+            onSearch={handleSearch} 
+            onFilter={handleFilter} 
+            filterFields={filterFields}
+            searchPlaceholder="Pesquisar equipamentos..."
+            className="mt-2"
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -432,14 +515,14 @@ const Equipment = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {equipment.length === 0 ? (
+                  {filteredEquipment.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
-                        Nenhum equipamento encontrado. Adicione um novo equipamento.
+                        Nenhum equipamento encontrado. Ajuste os critérios de pesquisa ou adicione um novo equipamento.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    equipment.map((item) => (
+                    filteredEquipment.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center">

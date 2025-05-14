@@ -17,9 +17,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/formatters";
 import { Maintenance, Equipment } from "@/types/inventory";
 import MaintenanceItem from "@/components/MaintenanceItem";
+import SearchAndFilter from "@/components/SearchAndFilter";
 
 const MaintenancePage = () => {
   const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
+  const [filteredMaintenance, setFilteredMaintenance] = useState<Maintenance[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -50,6 +52,7 @@ const MaintenancePage = () => {
 
       if (data) {
         setMaintenance(data);
+        setFilteredMaintenance(data);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar manutenções: ${error.message}`);
@@ -190,6 +193,59 @@ const MaintenancePage = () => {
     document.body.removeChild(link);
     toast.success("Exportação concluída");
   };
+
+  // Nova funcionalidade de pesquisa
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setFilteredMaintenance(maintenance);
+      return;
+    }
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const results = maintenance.filter(item => 
+      (item.equipment?.name && item.equipment.name.toLowerCase().includes(normalizedQuery)) ||
+      (item.equipment?.serial_number && item.equipment.serial_number.toLowerCase().includes(normalizedQuery)) ||
+      (item.description && item.description.toLowerCase().includes(normalizedQuery)) ||
+      (item.performed_by && item.performed_by.toLowerCase().includes(normalizedQuery)) ||
+      format(new Date(item.maintenance_date), "dd/MM/yyyy").includes(normalizedQuery)
+    );
+
+    setFilteredMaintenance(results);
+  };
+
+  // Nova funcionalidade de filtros
+  const handleFilter = (filters: Record<string, string>) => {
+    let results = [...maintenance];
+
+    if (filters.maintenance_type && filters.maintenance_type !== "") {
+      results = results.filter(item => item.maintenance_type === filters.maintenance_type);
+    }
+
+    if (filters.equipment_id && filters.equipment_id !== "") {
+      results = results.filter(item => item.equipment_id === filters.equipment_id);
+    }
+
+    setFilteredMaintenance(results);
+  };
+
+  // Opções para os filtros
+  const filterFields = [
+    {
+      name: "maintenance_type",
+      label: "Tipo",
+      options: [
+        { label: "Preventiva", value: "preventive" },
+        { label: "Corretiva", value: "corrective" },
+        { label: "Preditiva", value: "predictive" },
+        { label: "Outro", value: "other" }
+      ]
+    },
+    {
+      name: "equipment_id",
+      label: "Equipamento",
+      options: equipment.map(item => ({ label: item.name, value: item.id }))
+    }
+  ];
 
   return (
     <div className="container py-6 space-y-6">
@@ -342,6 +398,13 @@ const MaintenancePage = () => {
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Manutenções</CardTitle>
+          <SearchAndFilter 
+            onSearch={handleSearch} 
+            onFilter={handleFilter}
+            filterFields={filterFields}
+            searchPlaceholder="Pesquisar manutenções..."
+            className="mt-2"
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -363,14 +426,14 @@ const MaintenancePage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {maintenance.length === 0 ? (
+                  {filteredMaintenance.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                        Nenhuma manutenção registrada.
+                        Nenhuma manutenção encontrada. Ajuste os critérios de pesquisa ou registre uma nova manutenção.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    maintenance.map((item) => (
+                    filteredMaintenance.map((item) => (
                       <MaintenanceItem key={item.id} maintenance={item} />
                     ))
                   )}
