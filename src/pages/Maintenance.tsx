@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,9 +60,10 @@ const MaintenancePage = () => {
 
   async function fetchEquipment() {
     try {
+      // Modified: Select all required fields for the Equipment type
       const { data, error } = await supabase
         .from("equipment")
-        .select("id, name, serial_number")
+        .select("id, name, serial_number, model, category, status, created_at, updated_at, purchase_value, current_value, supplier, invoice_number, location_id")
         .order("name");
 
       if (error) {
@@ -71,7 +71,8 @@ const MaintenancePage = () => {
       }
 
       if (data) {
-        setEquipment(data);
+        // Now the data matches the Equipment type
+        setEquipment(data as Equipment[]);
       }
     } catch (error: any) {
       toast.error(`Erro ao carregar equipamentos: ${error.message}`);
