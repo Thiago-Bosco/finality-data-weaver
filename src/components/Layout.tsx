@@ -1,4 +1,3 @@
-
 import { Outlet } from "react-router-dom";
 import Header from "./Header";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Server, BarChart, Map, TruckIcon, ArrowLeftRight, Wrench, Settings } from "lucide-react";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Layout = () => {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   const navItems = [
     {
