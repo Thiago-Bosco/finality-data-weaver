@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { toast } from "sonner";
 import { Plus, Server, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/formatters";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Equipment {
   id: string;
@@ -21,6 +24,10 @@ interface Equipment {
   category: string;
   status: string;
   location_id: string | null;
+  purchase_value: number | null;
+  current_value: number | null;
+  supplier: string | null;
+  invoice_number: string | null;
   location?: {
     name: string;
   } | null;
@@ -44,6 +51,10 @@ const Equipment = () => {
     status: "active",
     specifications: {},
     location_id: "",
+    purchase_value: 0,
+    current_value: 0,
+    supplier: "",
+    invoice_number: "",
   });
 
   async function fetchEquipment() {
@@ -95,13 +106,20 @@ const Equipment = () => {
     fetchLocations();
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    
+    if (name === "purchase_value" || name === "current_value") {
+      // Trata entrada de valor monetário
+      const numericValue = parseFloat(value.replace(/[^0-9.-]/g, ''));
+      setFormData({ ...formData, [name]: isNaN(numericValue) ? 0 : numericValue });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData({ ...formData, [name]: value });
+    setFormData({ ...formData, [name]: value === "none" ? "" : value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,7 +128,11 @@ const Equipment = () => {
       // Fix the location_id handling for empty selection
       const submissionData = {
         ...formData,
-        location_id: formData.location_id === "none" || formData.location_id === "" ? null : formData.location_id
+        location_id: formData.location_id === "" ? null : formData.location_id,
+        purchase_value: formData.purchase_value || 0,
+        current_value: formData.current_value || 0,
+        supplier: formData.supplier || null,
+        invoice_number: formData.invoice_number || null
       };
 
       const { data, error } = await supabase
@@ -131,6 +153,10 @@ const Equipment = () => {
         status: "active",
         specifications: {},
         location_id: "",
+        purchase_value: 0,
+        current_value: 0,
+        supplier: "",
+        invoice_number: "",
       });
       setOpen(false);
       await fetchEquipment();
@@ -146,7 +172,18 @@ const Equipment = () => {
     }
 
     // Create CSV header
-    const headers = ["Nome", "Número de Série", "Modelo", "Categoria", "Status", "Localização"];
+    const headers = [
+      "Nome", 
+      "Número de Série", 
+      "Modelo", 
+      "Categoria", 
+      "Status", 
+      "Localização", 
+      "Valor de Compra", 
+      "Valor Atual",
+      "Fornecedor",
+      "Nota Fiscal"
+    ];
     
     // Create CSV rows
     const rows = equipment.map(item => [
@@ -155,13 +192,17 @@ const Equipment = () => {
       item.model,
       item.category,
       item.status,
-      item.location?.name || "N/A"
+      item.location?.name || "N/A",
+      formatCurrency(item.purchase_value || 0),
+      formatCurrency(item.current_value || 0),
+      item.supplier || "N/A",
+      item.invoice_number || "N/A"
     ]);
     
     // Combine header and rows
     const csvContent = [
       headers.join(","),
-      ...rows.map(row => row.join(","))
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
     ].join("\n");
     
     // Create download link
@@ -297,6 +338,65 @@ const Equipment = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* Novos campos adicionados */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="purchase_value" className="text-right">
+                      Valor de Compra
+                    </Label>
+                    <Input
+                      id="purchase_value"
+                      name="purchase_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.purchase_value}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="current_value" className="text-right">
+                      Valor Atual
+                    </Label>
+                    <Input
+                      id="current_value"
+                      name="current_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.current_value}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="supplier" className="text-right">
+                      Fornecedor
+                    </Label>
+                    <Input
+                      id="supplier"
+                      name="supplier"
+                      value={formData.supplier}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="invoice_number" className="text-right">
+                      Nota Fiscal
+                    </Label>
+                    <Input
+                      id="invoice_number"
+                      name="invoice_number"
+                      value={formData.invoice_number}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit">Salvar</Button>
@@ -327,12 +427,14 @@ const Equipment = () => {
                     <TableHead>Categoria</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Localização</TableHead>
+                    <TableHead>Valor de Compra</TableHead>
+                    <TableHead>Valor Atual</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {equipment.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                         Nenhum equipamento encontrado. Adicione um novo equipamento.
                       </TableCell>
                     </TableRow>
@@ -367,6 +469,8 @@ const Equipment = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>{item.location?.name || "-"}</TableCell>
+                        <TableCell>{formatCurrency(item.purchase_value || 0)}</TableCell>
+                        <TableCell>{formatCurrency(item.current_value || 0)}</TableCell>
                       </TableRow>
                     ))
                   )}

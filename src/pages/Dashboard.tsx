@@ -1,19 +1,23 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatCard from "@/components/StatCard";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/formatters";
-import { Package, DollarSign, ShoppingCart, AlertTriangle, Ban, ArrowUp, ArrowDown } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LineChart, Line } from "recharts";
+import { Cpu, Boxes, AlertTriangle, DollarSign, Map, Wrench, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { formatCurrency } from "@/lib/formatters";
+import { addMonths, isBefore } from 'date-fns';
 
-// Define types for dashboard data
-interface DashboardData {
+interface DashboardStats {
   totalEquipment: number;
-  lowStockEquipment: number;
-  outOfServiceEquipment: number;
-  equipmentValue: number;
+  activeEquipment: number;
+  inMaintenanceEquipment: number;
+  inactiveEquipment: number;
+  totalLocations: number;
+  totalMaintenances: number;
+  upcomingMaintenances: number;
+  totalValue: number;
+  maintenanceCost: number;
 }
 
 interface CategoryData {
@@ -21,94 +25,207 @@ interface CategoryData {
   value: number;
 }
 
-interface MonthlyMovementData {
+interface MaintenanceData {
   name: string;
-  movements: number;
-  maintenances: number;
+  value: number;
 }
 
-const Dashboard = () => {
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<DashboardData>({
-    totalEquipment: 0,
-    lowStockEquipment: 0,
-    outOfServiceEquipment: 0,
-    equipmentValue: 0
-  });
-  const [equipmentByCategory, setEquipmentByCategory] = useState<CategoryData[]>([]);
-  const [monthlyData, setMonthlyData] = useState<MonthlyMovementData[]>([]);
-  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+interface LocationData {
+  name: string;
+  equipmentCount: number;
+}
 
-  // Fetch dashboard data
+interface MonthlyMaintenanceData {
+  month: string;
+  count: number;
+  cost: number;
+}
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
+
+const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalEquipment: 0,
+    activeEquipment: 0,
+    inMaintenanceEquipment: 0,
+    inactiveEquipment: 0,
+    totalLocations: 0,
+    totalMaintenances: 0,
+    upcomingMaintenances: 0,
+    totalValue: 0,
+    maintenanceCost: 0
+  });
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
+  const [statusData, setStatusData] = useState<CategoryData[]>([]);
+  const [locationData, setLocationData] = useState<LocationData[]>([]);
+  const [maintenanceTypeData, setMaintenanceTypeData] = useState<MaintenanceData[]>([]);
+  const [monthlyMaintenanceData, setMonthlyMaintenanceData] = useState<MonthlyMaintenanceData[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-
-        // Get counts from equipment table
-        const { data: equipmentData, error: equipmentError } = await supabase
-          .from('equipment')
-          .select('*');
-
-        if (equipmentError) throw equipmentError;
         
-        // Count equipment by status
-        const totalEquipment = equipmentData.length;
-        const lowStockEquipment = equipmentData.filter(item => 
-          item.status === 'maintenance'
-        ).length;
-        const outOfServiceEquipment = equipmentData.filter(item => 
-          item.status === 'inactive'
-        ).length;
-
-        // Calculate total approximate value (we don't have real values in this schema)
-        // In a real application, you'd have a field for equipment value
-        const equipmentValue = totalEquipment * 5000; // Example placeholder value
-
-        // Set main dashboard metrics
-        setDashboardData({
-          totalEquipment,
-          lowStockEquipment,
-          outOfServiceEquipment,
-          equipmentValue
-        });
-
-        // Get equipment by category for the chart
-        if (equipmentData) {
-          const categoryCount: Record<string, number> = {};
+        // Fetch general statistics
+        const { data: equipmentData, error: equipmentError } = await supabase
+          .from("equipment")
+          .select("*");
           
-          equipmentData.forEach(item => {
-            const category = item.category || "Outros";
-            categoryCount[category] = (categoryCount[category] || 0) + 1;
-          });
-          
-          const categoryData = Object.entries(categoryCount).map(([name, value]) => ({
-            name: mapCategoryName(name),
-            value
-          }));
-          
-          setEquipmentByCategory(categoryData);
+        if (equipmentError) {
+          throw equipmentError;
         }
-
-        // Get equipment with maintenance status for the table
-        const lowStockItems = equipmentData
-          .filter(item => item.status === 'maintenance')
-          .slice(0, 5)
-          .map(item => ({
-            id: item.id,
-            name: item.name,
-            sku: item.serial_number,
-            stock: 'Em Manutenção',
-            price: 0 // Placeholder since we don't have price data
-          }));
-
-        setLowStockItems(lowStockItems);
-
-        // Generate monthly movement data (for demonstration)
-        // In a real app, you would query the database for this data
-        generateMonthlyMovementData();
-      } catch (error: any) {
-        toast.error(`Erro ao carregar dados do dashboard: ${error.message}`);
+        
+        // Contar status
+        const activeCount = equipmentData?.filter(eq => eq.status === 'active').length || 0;
+        const maintenanceCount = equipmentData?.filter(eq => eq.status === 'maintenance').length || 0;
+        const inactiveCount = equipmentData?.filter(eq => eq.status === 'inactive').length || 0;
+        
+        // Calcular valor total dos equipamentos
+        const totalValue = equipmentData?.reduce((sum, eq) => sum + (eq.current_value || 0), 0) || 0;
+        
+        // Agrupar por categoria
+        const categories: { [key: string]: number } = {};
+        equipmentData?.forEach(item => {
+          const category = item.category;
+          categories[category] = (categories[category] || 0) + 1;
+        });
+        
+        const categoryDataArray = Object.entries(categories).map(([name, value]) => {
+          let displayName = name;
+          if (name === "server") displayName = "Servidor";
+          if (name === "network") displayName = "Rede";
+          if (name === "storage") displayName = "Armazenamento";
+          if (name === "other") displayName = "Outro";
+          return { name: displayName, value };
+        });
+        
+        // Dados de status para o gráfico de pizza
+        const statusDataArray = [
+          { name: 'Ativos', value: activeCount },
+          { name: 'Em Manutenção', value: maintenanceCount },
+          { name: 'Inativos', value: inactiveCount }
+        ];
+        
+        // Buscar localizações
+        const { data: locationsData, error: locationsError } = await supabase
+          .from("locations")
+          .select("id, name");
+          
+        if (locationsError) {
+          throw locationsError;
+        }
+        
+        // Dados de equipamentos por localização
+        const locationStats: LocationData[] = [];
+        
+        if (locationsData) {
+          for (const location of locationsData) {
+            const { count, error } = await supabase
+              .from("equipment")
+              .select("*", { count: 'exact', head: true })
+              .eq("location_id", location.id);
+              
+            if (error) {
+              console.error("Error counting equipment for location:", error);
+              continue;
+            }
+            
+            locationStats.push({
+              name: location.name,
+              equipmentCount: count || 0
+            });
+          }
+        }
+        
+        // Buscar dados de manutenção
+        const { data: maintenanceData, error: maintenanceError } = await supabase
+          .from("equipment_maintenance")
+          .select("*");
+          
+        if (maintenanceError) {
+          throw maintenanceError;
+        }
+        
+        // Agrupar manutenções por tipo
+        const maintenanceTypes: { [key: string]: number } = {};
+        maintenanceData?.forEach(item => {
+          const type = item.maintenance_type;
+          maintenanceTypes[type] = (maintenanceTypes[type] || 0) + 1;
+        });
+        
+        const maintenanceTypeDataArray = Object.entries(maintenanceTypes).map(([name, value]) => {
+          let displayName = name;
+          if (name === "preventive") displayName = "Preventiva";
+          if (name === "corrective") displayName = "Corretiva";
+          if (name === "predictive") displayName = "Preditiva";
+          if (name === "other") displayName = "Outro";
+          return { name: displayName, value };
+        });
+        
+        // Calcular custo total de manutenções
+        const maintenanceCost = maintenanceData?.reduce((sum, maintenance) => 
+          sum + (maintenance.maintenance_cost || 0), 0) || 0;
+        
+        // Verificar manutenções próximas (nos próximos 30 dias)
+        const now = new Date();
+        const nextMonth = addMonths(now, 1);
+        const upcomingCount = maintenanceData?.filter(maintenance => {
+          if (!maintenance.next_maintenance_date) return false;
+          const nextDate = new Date(maintenance.next_maintenance_date);
+          return isBefore(nextDate, nextMonth) && isBefore(now, nextDate);
+        }).length || 0;
+        
+        // Dados de manutenções por mês (últimos 6 meses)
+        const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+        const monthlyData: { [key: string]: { count: number, cost: number } } = {};
+        
+        // Inicializar os últimos 6 meses
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const monthKey = `${monthNames[d.getMonth()]}/${d.getFullYear().toString().substring(2)}`;
+          monthlyData[monthKey] = { count: 0, cost: 0 };
+        }
+        
+        // Preencher dados
+        maintenanceData?.forEach(maintenance => {
+          const date = new Date(maintenance.maintenance_date);
+          const monthKey = `${monthNames[date.getMonth()]}/${date.getFullYear().toString().substring(2)}`;
+          
+          // Verificar se o mês está nos últimos 6 meses
+          if (monthlyData[monthKey]) {
+            monthlyData[monthKey].count += 1;
+            monthlyData[monthKey].cost += (maintenance.maintenance_cost || 0);
+          }
+        });
+        
+        const monthlyMaintenanceDataArray = Object.entries(monthlyData).map(([month, data]) => ({
+          month,
+          count: data.count,
+          cost: data.cost
+        }));
+        
+        setStats({
+          totalEquipment: equipmentData?.length || 0,
+          activeEquipment: activeCount,
+          inMaintenanceEquipment: maintenanceCount,
+          inactiveEquipment: inactiveCount,
+          totalLocations: locationsData?.length || 0,
+          totalMaintenances: maintenanceData?.length || 0,
+          upcomingMaintenances: upcomingCount,
+          totalValue: totalValue,
+          maintenanceCost: maintenanceCost
+        });
+        
+        setCategoryData(categoryDataArray);
+        setStatusData(statusDataArray);
+        setLocationData(locationStats);
+        setMaintenanceTypeData(maintenanceTypeDataArray);
+        setMonthlyMaintenanceData(monthlyMaintenanceDataArray);
+        
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
@@ -116,224 +233,223 @@ const Dashboard = () => {
 
     fetchDashboardData();
   }, []);
-
-  // Helper function to map category codes to readable names
-  const mapCategoryName = (category: string): string => {
-    const categoryMap: { [key: string]: string } = {
-      'server': 'Servidores',
-      'network': 'Equipamento de Rede',
-      'storage': 'Armazenamento',
-      'other': 'Outros'
-    };
-    return categoryMap[category] || category;
+  
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-2 border rounded shadow">
+          <p className="label">{`${label} : ${payload[0].value}`}</p>
+        </div>
+      );
+    }
+    return null;
   };
 
-  // Generate monthly data for the chart
-  const generateMonthlyMovementData = async () => {
-    try {
-      // Get movement data from the past 6 months
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      
-      const { data: movementData, error: movementError } = await supabase
-        .from('movement_history')
-        .select('moved_at')
-        .gte('moved_at', sixMonthsAgo.toISOString());
-        
-      if (movementError) throw movementError;
-      
-      // Get maintenance data 
-      const { data: maintenanceData, error: maintenanceError } = await supabase
-        .from('equipment_maintenance')
-        .select('maintenance_date')
-        .gte('maintenance_date', sixMonthsAgo.toISOString());
-        
-      if (maintenanceError) throw maintenanceError;
-      
-      // Group by month
-      const months: { [key: string]: { movements: number; maintenances: number } } = {};
-      
-      for (let i = 0; i < 6; i++) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        months[monthKey] = { movements: 0, maintenances: 0 };
-      }
-      
-      // Count movements by month
-      movementData?.forEach(item => {
-        const date = new Date(item.moved_at);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        if (months[monthKey]) {
-          months[monthKey].movements++;
-        }
-      });
-      
-      // Count maintenances by month
-      maintenanceData?.forEach(item => {
-        const date = new Date(item.maintenance_date);
-        const monthKey = date.toLocaleString('default', { month: 'short' });
-        if (months[monthKey]) {
-          months[monthKey].maintenances++;
-        }
-      });
-      
-      // Convert to array for the chart
-      const monthlyData = Object.entries(months).map(([name, data]) => ({
-        name,
-        movements: data.movements,
-        maintenances: data.maintenances
-      })).reverse();
-      
-      setMonthlyData(monthlyData);
-    } catch (error: any) {
-      console.error("Error generating monthly data:", error);
-      // Fall back to sample data if there's an error
-      const sampleData = [
-        { name: "Jan", movements: 4, maintenances: 2 },
-        { name: "Fev", movements: 3, maintenances: 1 },
-        { name: "Mar", movements: 2, maintenances: 3 },
-        { name: "Abr", movements: 2, maintenances: 2 },
-        { name: "Mai", movements: 3, maintenances: 1 },
-        { name: "Jun", movements: 5, maintenances: 2 },
-      ];
-      setMonthlyData(sampleData);
+  const MaintenanceCustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-2 border rounded shadow">
+          <p className="label">{`${label}`}</p>
+          <p className="text-sm">{`Manutenções: ${payload[0].value}`}</p>
+          <p className="text-sm">{`Custo: ${formatCurrency(payload[1].value)}`}</p>
+        </div>
+      );
     }
+    return null;
   };
 
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Visão Geral</h1>
-      
+    <div className="container py-6 space-y-6">
+      <h1 className="text-3xl font-bold">Dashboard</h1>
+
       {loading ? (
-        <div className="flex justify-center py-12">
+        <div className="flex justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-inventory-primary"></div>
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <StatCard 
-              title="Total de Equipamentos" 
-              value={dashboardData.totalEquipment} 
-              icon={<Package className="h-4 w-4" />} 
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              title="Total de Equipamentos"
+              value={stats.totalEquipment}
+              icon={<Cpu className="h-5 w-5" />}
+              description={`${stats.activeEquipment} ativos, ${stats.inMaintenanceEquipment} em manutenção`}
             />
-            <StatCard 
-              title="Valor Estimado" 
-              value={formatCurrency(dashboardData.equipmentValue)} 
-              icon={<DollarSign className="h-4 w-4" />} 
+            <StatCard
+              title="Localizações"
+              value={stats.totalLocations}
+              icon={<Map className="h-5 w-5" />}
+              description="Distribuição de equipamentos"
             />
-            <StatCard 
-              title="Em Manutenção" 
-              value={dashboardData.lowStockEquipment} 
-              icon={<AlertTriangle className="h-4 w-4" />} 
-              description="Equipamentos em manutenção"
-              className={dashboardData.lowStockEquipment > 0 ? "border-yellow-400" : ""}
+            <StatCard
+              title="Valor do Inventário"
+              value={formatCurrency(stats.totalValue)}
+              icon={<DollarSign className="h-5 w-5" />}
+              description="Valor atual dos equipamentos"
             />
-            <StatCard 
-              title="Inativos" 
-              value={dashboardData.outOfServiceEquipment}
-              icon={<Ban className="h-4 w-4" />} 
-              description="Equipamentos fora de serviço"
-              className={dashboardData.outOfServiceEquipment > 0 ? "border-red-400" : ""}
+            <StatCard
+              title="Manutenções Próximas"
+              value={stats.upcomingMaintenances}
+              icon={<Calendar className="h-5 w-5" />}
+              description="Nos próximos 30 dias"
             />
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 mb-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Movimentações vs. Manutenções</CardTitle>
-                <CardDescription>Análise mensal dos últimos 6 meses</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart
-                    data={monthlyData}
-                    margin={{
-                      top: 5,
-                      right: 10,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="movements" name="Movimentações" stroke="#2563eb" activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="maintenances" name="Manutenções" stroke="#ef4444" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
+          <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Equipamentos por Categoria</CardTitle>
-                <CardDescription>Distribuição de equipamentos</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={equipmentByCategory}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" name="Quantidade" fill="#0ea5e9" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="mb-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Equipamentos em Manutenção</CardTitle>
-                <CardDescription>Atenção necessária</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-2 px-4 text-left">Nome</th>
-                        <th className="py-2 px-4 text-left">Número de Série</th>
-                        <th className="py-2 px-4 text-left">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lowStockItems.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="py-4 text-center text-muted-foreground">
-                            Nenhum equipamento em manutenção.
-                          </td>
-                        </tr>
-                      ) : (
-                        lowStockItems.map((item) => (
-                          <tr key={item.id} className="border-b hover:bg-muted/50">
-                            <td className="py-2 px-4">{item.name}</td>
-                            <td className="py-2 px-4">{item.sku}</td>
-                            <td className="py-2 px-4">
-                              <span className="inline-flex items-center text-orange-600">
-                                <AlertTriangle className="h-4 w-4 mr-1" />
-                                Em Manutenção
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Status dos Equipamentos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        <Cell key="cell-0" fill="#10b981" />
+                        <Cell key="cell-1" fill="#f59e0b" />
+                        <Cell key="cell-2" fill="#ef4444" />
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Equipamentos por Localização</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      width={500}
+                      height={300}
+                      data={locationData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="equipmentCount" name="Equipamentos" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tipos de Manutenção</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={maintenanceTypeData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {maintenanceTypeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="col-span-1 md:col-span-2">
+              <CardHeader>
+                <CardTitle>Manutenções e Custos Mensais</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      width={500}
+                      height={300}
+                      data={monthlyMaintenanceData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip content={<MaintenanceCustomTooltip />} />
+                      <Legend />
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="count"
+                        name="Manutenções"
+                        stroke="#8884d8"
+                        activeDot={{ r: 8 }}
+                      />
+                      <Line yAxisId="right" type="monotone" dataKey="cost" name="Custo (R$)" stroke="#82ca9d" />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>

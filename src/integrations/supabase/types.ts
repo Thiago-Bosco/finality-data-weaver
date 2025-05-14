@@ -13,42 +13,54 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          current_value: number | null
           id: string
+          invoice_number: string | null
           location_id: string | null
           model: string
           name: string
           purchase_date: string | null
+          purchase_value: number | null
           serial_number: string
           specifications: Json | null
           status: string
+          supplier: string | null
           updated_at: string
           warranty_expiry: string | null
         }
         Insert: {
           category: string
           created_at?: string
+          current_value?: number | null
           id?: string
+          invoice_number?: string | null
           location_id?: string | null
           model: string
           name: string
           purchase_date?: string | null
+          purchase_value?: number | null
           serial_number: string
           specifications?: Json | null
           status?: string
+          supplier?: string | null
           updated_at?: string
           warranty_expiry?: string | null
         }
         Update: {
           category?: string
           created_at?: string
+          current_value?: number | null
           id?: string
+          invoice_number?: string | null
           location_id?: string | null
           model?: string
           name?: string
           purchase_date?: string | null
+          purchase_value?: number | null
           serial_number?: string
           specifications?: Json | null
           status?: string
+          supplier?: string | null
           updated_at?: string
           warranty_expiry?: string | null
         }
@@ -68,6 +80,7 @@ export type Database = {
           description: string | null
           equipment_id: string
           id: string
+          maintenance_cost: number | null
           maintenance_date: string
           maintenance_type: string
           next_maintenance_date: string | null
@@ -79,6 +92,7 @@ export type Database = {
           description?: string | null
           equipment_id: string
           id?: string
+          maintenance_cost?: number | null
           maintenance_date?: string
           maintenance_type: string
           next_maintenance_date?: string | null
@@ -90,6 +104,7 @@ export type Database = {
           description?: string | null
           equipment_id?: string
           id?: string
+          maintenance_cost?: number | null
           maintenance_date?: string
           maintenance_type?: string
           next_maintenance_date?: string | null

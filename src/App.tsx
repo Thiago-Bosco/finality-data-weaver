@@ -12,6 +12,7 @@ import ProductForm from "./pages/ProductForm";
 import Suppliers from "./pages/Suppliers";
 import Locations from "./pages/Locations";
 import Movements from "./pages/Movements";
+import Maintenance from "./pages/Maintenance";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="locations" element={<Locations />} />
               <Route path="suppliers" element={<Suppliers />} />
               <Route path="movements" element={<Movements />} />
+              <Route path="maintenance" element={<Maintenance />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -46,6 +47,10 @@ export interface Equipment {
   location_id?: string | null;
   created_at: string;
   updated_at: string;
+  purchase_value?: number | null;
+  current_value?: number | null;
+  supplier?: string | null;
+  invoice_number?: string | null;
 }
 
 export interface Location {
@@ -84,11 +89,16 @@ export interface Movement {
 export interface Maintenance {
   id: string;
   equipment_id: string;
+  equipment?: {
+    name: string;
+    serial_number: string;
+  };
   maintenance_type: string;
   description?: string | null;
   performed_by: string;
   maintenance_date: string;
   next_maintenance_date?: string | null;
+  maintenance_cost?: number | null;
   created_at: string;
   updated_at: string;
 }
