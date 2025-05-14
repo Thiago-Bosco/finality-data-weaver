@@ -1,17 +1,9 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
 import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { 
   Command,
   CommandInput,
@@ -115,7 +107,7 @@ export default function SearchAndFilter({
         />
       </div>
       
-      {filterFields.length > 0 && (
+      {filterFields && filterFields.length > 0 && (
         <div className="flex flex-wrap gap-2 items-center">
           {filterFields.map((field) => (
             <Popover 
@@ -133,7 +125,7 @@ export default function SearchAndFilter({
                   {field.label}
                   {filters[field.name] && (
                     <Badge className="ml-2 bg-primary/20" variant="secondary">
-                      {field.options.find(opt => opt.value === filters[field.name])?.label || filters[field.name]}
+                      {field.options && field.options.find(opt => opt.value === filters[field.name])?.label || filters[field.name]}
                     </Badge>
                   )}
                 </Button>
@@ -150,7 +142,7 @@ export default function SearchAndFilter({
                       <span>Todos</span>
                       {filters[field.name] === "" && <span>✓</span>}
                     </CommandItem>
-                    {field.options.map((option) => (
+                    {field.options && field.options.map((option) => (
                       <CommandItem
                         key={option.value}
                         onSelect={() => handleFilterChange(field.name, option.value)}
