@@ -1,12 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +43,7 @@ const SupplierForm = () => {
   });
 
   // Carregar dados do fornecedor se estiver editando
-  useState(() => {
+  useEffect(() => {
     if (id) {
       const fetchSupplier = async () => {
         try {
@@ -82,7 +82,7 @@ const SupplierForm = () => {
 
       fetchSupplier();
     }
-  }, [id]);
+  }, [id, navigate, toast, form]);
 
   const onSubmit = async (values: SupplierFormValues) => {
     if (!isAdmin) {
@@ -116,7 +116,7 @@ const SupplierForm = () => {
         // Criar novo fornecedor
         const result = await supabase
           .from("suppliers")
-          .insert([values]);
+          .insert(values);
         error = result.error;
 
         if (!error) {
