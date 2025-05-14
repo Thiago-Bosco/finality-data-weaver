@@ -22,7 +22,13 @@ const supplierFormSchema = z.object({
   phone: z.string().optional()
 });
 
-type SupplierFormValues = z.infer<typeof supplierFormSchema>;
+// Importante: garante que 'name' nunca será undefined
+type SupplierFormValues = {
+  name: string;  // Note que não é opcional
+  contact?: string;
+  email?: string;
+  phone?: string;
+};
 
 const SupplierForm = () => {
   const { id } = useParams();
@@ -94,6 +100,16 @@ const SupplierForm = () => {
       return;
     }
 
+    // Verificação para garantir que name nunca será undefined
+    if (!values.name) {
+      toast({
+        title: "Erro",
+        description: "Nome do fornecedor é obrigatório",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       let error;
@@ -113,10 +129,10 @@ const SupplierForm = () => {
           });
         }
       } else {
-        // Criar novo fornecedor - passar values como array
+        // Criar novo fornecedor
         const result = await supabase
           .from("suppliers")
-          .insert([values]);
+          .insert([values]); // Array com um único objeto
         error = result.error;
 
         if (!error) {
