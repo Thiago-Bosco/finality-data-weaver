@@ -1,22 +1,41 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Package, BarChart3, Settings, Users, ShoppingCart, ServerIcon } from "lucide-react";
+import { 
+  Menu, 
+  Package, 
+  BarChart3, 
+  Settings, 
+  Users, 
+  ArrowLeftRight,
+  ShoppingCart, 
+  Server,
+  Map,
+  Wrench 
+} from "lucide-react";
 import { UserMenu } from "./UserMenu";
 
 const Header = () => {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
 
   const navItems = [
     { name: "Dashboard", href: "/", icon: <BarChart3 className="h-5 w-5 mr-2" /> },
-    { name: "Equipamentos", href: "/products", icon: <ServerIcon className="h-5 w-5 mr-2" /> },
-    { name: "Localizações", href: "/locations", icon: <Package className="h-5 w-5 mr-2" /> },
+    { name: "Equipamentos", href: "/equipments", icon: <Server className="h-5 w-5 mr-2" /> },
+    { name: "Localizações", href: "/locations", icon: <Map className="h-5 w-5 mr-2" /> },
     { name: "Fornecedores", href: "/suppliers", icon: <Users className="h-5 w-5 mr-2" /> },
-    { name: "Movimentações", href: "/movements", icon: <ShoppingCart className="h-5 w-5 mr-2" /> },
+    { name: "Movimentações", href: "/movements", icon: <ArrowLeftRight className="h-5 w-5 mr-2" /> },
+    { name: "Manutenções", href: "/maintenance", icon: <Wrench className="h-5 w-5 mr-2" /> },
+    { name: "Pedidos", href: "/orders", icon: <ShoppingCart className="h-5 w-5 mr-2" /> },
     { name: "Configurações", href: "/settings", icon: <Settings className="h-5 w-5 mr-2" /> }
   ];
+
+  const isActive = (path: string) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
@@ -38,7 +57,11 @@ const Header = () => {
                   <Link
                     key={item.name}
                     to={item.href}
-                    className="flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                    className={`flex items-center rounded-md px-3 py-2 text-sm font-medium ${
+                      isActive(item.href) 
+                        ? "bg-inventory-primary text-white" 
+                        : "hover:bg-accent hover:text-accent-foreground"
+                    }`}
                     onClick={() => setOpen(false)}
                   >
                     {item.icon}
@@ -60,7 +83,11 @@ const Header = () => {
             <Link
               key={item.name}
               to={item.href}
-              className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                isActive(item.href)
+                  ? "bg-inventory-primary text-white"
+                  : "hover:bg-accent hover:text-accent-foreground"
+              }`}
             >
               {item.icon}
               {item.name}

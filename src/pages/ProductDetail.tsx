@@ -37,7 +37,7 @@ const ProductDetail = () => {
         const foundSupplier = suppliers.find(s => s.id === foundProduct.supplier);
         setSupplier(foundSupplier || null);
       } else {
-        navigate("/products");
+        navigate("/equipments");
       }
     }
   }, [id, navigate]);
@@ -61,7 +61,7 @@ const ProductDetail = () => {
       title: "Produto removido",
       description: `${product.name} foi removido com sucesso.`,
     });
-    navigate("/products");
+    navigate("/equipments");
   };
 
   const handleStockUpdate = () => {
@@ -94,10 +94,10 @@ const ProductDetail = () => {
       <Button
         variant="ghost"
         className="mb-6"
-        onClick={() => navigate("/products")}
+        onClick={() => navigate("/equipments")}
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Voltar para produtos
+        Voltar para equipamentos
       </Button>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -122,7 +122,7 @@ const ProductDetail = () => {
               <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={() => navigate(`/products/edit/${product.id}`)}>
+              <Button variant="outline" onClick={() => navigate(`/equipments/edit/${product.id}`)}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Editar
               </Button>

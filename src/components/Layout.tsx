@@ -1,15 +1,24 @@
-import { Outlet } from "react-router-dom";
+
+import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Server, BarChart, Map, TruckIcon, ArrowLeftRight, Wrench, Settings } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Server, 
+  Map, 
+  TruckIcon, 
+  ArrowLeftRight, 
+  Wrench, 
+  Settings,
+  ShoppingCart 
+} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Layout = () => {
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   const navItems = [
     {
@@ -43,11 +52,22 @@ const Layout = () => {
       href: "/maintenance",
     },
     {
+      label: "Pedidos",
+      icon: <ShoppingCart className="mr-2 h-4 w-4" />,
+      href: "/orders",
+    },
+    {
       label: "Configurações",
       icon: <Settings className="mr-2 h-4 w-4" />,
       href: "/settings",
     },
   ];
+
+  // Function to determine if a nav item is active
+  const isActive = (path: string) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -69,6 +89,7 @@ const Layout = () => {
                         "flex items-center justify-start w-full rounded-md px-4 py-2 text-sm font-medium",
                         isActive ? "bg-inventory-primary text-white" : "hover:bg-muted"
                       )}
+                      end={item.href === "/"}
                     >
                       {item.icon}
                       {item.label}

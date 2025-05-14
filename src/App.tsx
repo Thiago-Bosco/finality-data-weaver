@@ -14,6 +14,7 @@ import SupplierForm from "./pages/SupplierForm";
 import Locations from "./pages/Locations";
 import Movements from "./pages/Movements";
 import Maintenance from "./pages/Maintenance";
+import Orders from "./pages/Orders";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -39,15 +40,16 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="products" element={<Navigate to="/equipments" replace />} />
               <Route path="equipments" element={<Equipment />} />
-              <Route path="products/:id" element={<ProductDetail />} />
-              <Route path="products/new" element={<ProductForm />} />
-              <Route path="products/edit/:id" element={<ProductForm />} />
+              <Route path="equipments/:id" element={<ProductDetail />} />
+              <Route path="equipments/new" element={<ProductForm />} />
+              <Route path="equipments/edit/:id" element={<ProductForm />} />
               <Route path="locations" element={<Locations />} />
               <Route path="suppliers" element={<Suppliers />} />
               <Route path="suppliers/new" element={<SupplierForm />} />
               <Route path="suppliers/edit/:id" element={<SupplierForm />} />
               <Route path="movements" element={<Movements />} />
               <Route path="maintenance" element={<Maintenance />} />
+              <Route path="orders" element={<Orders />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
