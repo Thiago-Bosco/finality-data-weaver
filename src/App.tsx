@@ -10,6 +10,7 @@ import Equipment from "./pages/Equipment";
 import ProductDetail from "./pages/ProductDetail";
 import ProductForm from "./pages/ProductForm";
 import Suppliers from "./pages/Suppliers";
+import SupplierForm from "./pages/SupplierForm";
 import Locations from "./pages/Locations";
 import Movements from "./pages/Movements";
 import Maintenance from "./pages/Maintenance";
@@ -43,6 +44,8 @@ const App = () => (
               <Route path="products/edit/:id" element={<ProductForm />} />
               <Route path="locations" element={<Locations />} />
               <Route path="suppliers" element={<Suppliers />} />
+              <Route path="suppliers/new" element={<SupplierForm />} />
+              <Route path="suppliers/edit/:id" element={<SupplierForm />} />
               <Route path="movements" element={<Movements />} />
               <Route path="maintenance" element={<Maintenance />} />
               <Route path="settings" element={<Settings />} />
