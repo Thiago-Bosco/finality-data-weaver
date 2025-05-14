@@ -113,10 +113,10 @@ const SupplierForm = () => {
           });
         }
       } else {
-        // Criar novo fornecedor
+        // Criar novo fornecedor - passar values como array
         const result = await supabase
           .from("suppliers")
-          .insert(values);
+          .insert([values]);
         error = result.error;
 
         if (!error) {
