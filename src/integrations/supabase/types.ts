@@ -212,6 +212,146 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id: string
+          quantity: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          id: string
+          status: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          id?: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          id?: string
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category: string
+          cost: number
+          description: string | null
+          id: string
+          image_url: string | null
+          last_updated: string
+          name: string
+          price: number
+          quantity_available: number | null
+          quantity_reserved: number
+          quantity_total: number
+          sku: string
+          supplier: string | null
+        }
+        Insert: {
+          category: string
+          cost?: number
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_updated?: string
+          name: string
+          price?: number
+          quantity_available?: number | null
+          quantity_reserved?: number
+          quantity_total?: number
+          sku: string
+          supplier?: string | null
+        }
+        Update: {
+          category?: string
+          cost?: number
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_updated?: string
+          name?: string
+          price?: number
+          quantity_available?: number | null
+          quantity_reserved?: number
+          quantity_total?: number
+          sku?: string
+          supplier?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

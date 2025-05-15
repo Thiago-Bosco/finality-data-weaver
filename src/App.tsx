@@ -15,6 +15,7 @@ import Locations from "./pages/Locations";
 import Movements from "./pages/Movements";
 import Maintenance from "./pages/Maintenance";
 import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="movements" element={<Movements />} />
               <Route path="maintenance" element={<Maintenance />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
