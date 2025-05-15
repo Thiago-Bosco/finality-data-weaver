@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
@@ -56,17 +55,17 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       fetchCategories();
       fetchProducts();
       setCart([]);
-      setSelectedCategory("");
+      setSelectedCategory("all");
       setCustomerName("");
       setCustomerEmail("");
     }
   }, [open]);
   
   useEffect(() => {
-    if (selectedCategory) {
-      setFilteredProducts(products.filter(p => p.category === selectedCategory && p.quantity_available > 0));
-    } else {
+    if (selectedCategory === "all") {
       setFilteredProducts(products.filter(p => p.quantity_available > 0));
+    } else {
+      setFilteredProducts(products.filter(p => p.category === selectedCategory && p.quantity_available > 0));
     }
   }, [selectedCategory, products]);
   
@@ -262,7 +261,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                       <SelectValue placeholder="Todas as categorias" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todas as categorias</SelectItem>
+                      <SelectItem value="all">Todas as categorias</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
