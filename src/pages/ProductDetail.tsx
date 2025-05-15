@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { products, categories, suppliers } from "@/data/mockData";
@@ -11,12 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { AlertTriangle, ArrowLeft, Edit2, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
@@ -57,10 +55,7 @@ const ProductDetail = () => {
   };
 
   const handleDelete = () => {
-    toast({
-      title: "Produto removido",
-      description: `${product.name} foi removido com sucesso.`,
-    });
+    toast("Produto removido");
     navigate("/equipments");
   };
 
@@ -68,20 +63,13 @@ const ProductDetail = () => {
     if (product) {
       const newStock = product.stock + stockUpdateAmount;
       if (newStock < 0) {
-        toast({
-          title: "Operação inválida",
-          description: "O estoque não pode ficar negativo.",
-          variant: "destructive",
-        });
+        toast("O estoque não pode ficar negativo");
         return;
       }
       
       setProduct({ ...product, stock: newStock });
       
-      toast({
-        title: "Estoque atualizado",
-        description: `Novo estoque: ${newStock} unidades.`,
-      });
+      toast(`Novo estoque: ${newStock} unidades`);
       
       setIsStockDialogOpen(false);
     }

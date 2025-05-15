@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { products } from "@/data/mockData";
 import { Input } from "@/components/ui/input";
@@ -41,11 +40,7 @@ const Products = () => {
       setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as categorias",
-        variant: "destructive",
-      });
+      toast("Não foi possível carregar as categorias");
     } finally {
       setIsLoading(false);
     }
