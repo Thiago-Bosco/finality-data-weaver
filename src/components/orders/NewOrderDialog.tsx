@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,8 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     try {
       const { data, error } = await supabase
         .from('product_categories')
-        .select('*');
+        .select('*')
+        .order('name');
       
       if (error) throw error;
       
