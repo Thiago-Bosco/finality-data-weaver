@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ interface Order {
   approver?: {
     full_name: string | null;
     email: string;
-  };
+  } | null;
   items?: OrderItem[];
 }
 
@@ -108,8 +109,14 @@ const OrderDetail = () => {
         })
       );
       
+      // Handle potential error with approver data
+      const approverData = orderData.approver && !('error' in orderData.approver) 
+        ? orderData.approver 
+        : null;
+      
       setOrder({
         ...orderData,
+        approver: approverData,
         items: orderItems
       });
     } catch (error) {
