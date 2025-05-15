@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -82,23 +81,36 @@ const OrderDetail = () => {
       
       if (orderError) throw orderError;
       
-      // Fetch the order items
+      // Fetch the order items - this is where the fix is applied
       const { data: itemsData, error: itemsError } = await supabase
         .from('order_items')
-        .select(`
-          *,
-          product:product_id(
-            name,
-            sku
-          )
-        `)
+        .select('*')
         .eq('order_id', id);
       
       if (itemsError) throw itemsError;
       
+      // Separately fetch product information for each order item
+      const orderItems: OrderItem[] = await Promise.all(
+        itemsData.map(async (item) => {
+          const { data: productData, error: productError } = await supabase
+            .from('products')
+            .select('name, sku')
+            .eq('id', item.product_id)
+            .single();
+          
+          return {
+            id: item.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            product: productError ? { name: "Produto não encontrado", sku: "-" } : productData
+          };
+        })
+      );
+      
       setOrder({
         ...orderData,
-        items: itemsData
+        items: orderItems
       });
     } catch (error) {
       console.error('Error fetching order details:', error);
