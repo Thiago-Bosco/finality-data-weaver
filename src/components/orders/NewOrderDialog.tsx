@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { MinusCircle, PlusCircle, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/use-toast";
 
 interface NewOrderDialogProps {
   open: boolean;
@@ -83,7 +82,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast.error('Erro ao carregar categorias');
+      toast('Erro ao carregar categorias');
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +101,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Erro ao carregar produtos');
+      toast('Erro ao carregar produtos');
     } finally {
       setIsLoading(false);
     }
@@ -160,12 +159,12 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   
   const handleSubmitOrder = async () => {
     if (!customerName) {
-      toast.error('Nome do cliente é obrigatório');
+      toast('Nome do cliente é obrigatório');
       return;
     }
     
     if (cart.length === 0) {
-      toast.error('Adicione pelo menos um item ao pedido');
+      toast('Adicione pelo menos um item ao pedido');
       return;
     }
     
@@ -202,12 +201,12 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       
       if (itemsError) throw itemsError;
       
-      toast.success('Pedido criado com sucesso! Aguardando aprovação.');
+      toast('Pedido criado com sucesso! Aguardando aprovação.');
       onOpenChange(false);
       onOrderCreated();
     } catch (error) {
       console.error('Error creating order:', error);
-      toast.error('Erro ao criar pedido. Tente novamente.');
+      toast('Erro ao criar pedido. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
