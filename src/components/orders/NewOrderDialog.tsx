@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -341,6 +340,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                   </div>
                 </div>
                 
+                {/* Product listing */}
                 {isLoading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     {[1, 2, 3, 4].map(i => (
@@ -415,6 +415,8 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                   </>
                 )}
               </TabsContent>
+              
+              {/* Cart content */}
               <TabsContent value="cart" className="p-4">
                 {cart.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
