@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
-import { MinusCircle, PlusCircle, X, Package, Archive, Layers, Search } from "lucide-react";
+import { MinusCircle, PlusCircle, X, Package, Archive, Layers, Search, Server } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -34,6 +34,7 @@ interface Product {
   price: number;
   description: string | null;
   quantity_available: number;
+  type?: string; // Added type field to distinguish between regular products and equipment
 }
 
 interface Category {
@@ -72,7 +73,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   
   useEffect(() => {
     // Apply both category filtering and search filtering
-    let filtered = products.filter(p => p.quantity_available > 0);
+    let filtered = products;
     
     // Apply category filter
     if (selectedCategory !== "all") {
@@ -84,7 +85,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(query) || 
-        p.sku.toLowerCase().includes(query) || 
+        p.sku?.toLowerCase().includes(query) || 
         p.description?.toLowerCase().includes(query)
       );
     }
@@ -95,14 +96,39 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   const fetchCategories = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch product categories
+      const { data: productCategories, error: productCategoriesError } = await supabase
         .from('product_categories')
         .select('*')
         .order('name');
       
-      if (error) throw error;
+      if (productCategoriesError) throw productCategoriesError;
       
-      setCategories(data || []);
+      // Fetch unique equipment categories 
+      const { data: equipmentCategories, error: equipmentCategoriesError } = await supabase
+        .from('equipment')
+        .select('category')
+        .eq('status', 'active')
+        .order('category');
+      
+      if (equipmentCategoriesError) throw equipmentCategoriesError;
+      
+      // Extract unique equipment categories
+      const uniqueEquipmentCategories = Array.from(
+        new Set(equipmentCategories.map(item => item.category))
+      ).map(category => ({
+        id: `equipment_${category}`,
+        name: category === 'server' ? 'Servidores' : 
+              category === 'network' ? 'Equipamento de Rede' : 
+              category === 'storage' ? 'Armazenamento' : 
+              'Outros Equipamentos'
+      }));
+      
+      // Combine both category types
+      setCategories([
+        ...productCategories || [], 
+        ...uniqueEquipmentCategories
+      ]);
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast({
@@ -117,14 +143,39 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch regular products
+      const { data: regularProducts, error: regularProductsError } = await supabase
         .from('products')
         .select('*')
         .gt('quantity_available', 0);
       
-      if (error) throw error;
+      if (regularProductsError) throw regularProductsError;
       
-      setProducts(data || []);
+      // 2. Fetch equipment items that are active
+      const { data: equipmentItems, error: equipmentError } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('status', 'active');
+      
+      if (equipmentError) throw equipmentError;
+      
+      // Transform equipment items to match product structure
+      const transformedEquipment = equipmentItems?.map(item => ({
+        id: item.id,
+        name: item.name,
+        sku: item.serial_number,
+        category: `equipment_${item.category}`,
+        price: item.current_value || 0,
+        description: `Modelo: ${item.model}`,
+        quantity_available: 1, // Equipment is unique, so only 1 available
+        type: 'equipment'
+      })) || [];
+      
+      // Combine both products and equipment
+      setProducts([
+        ...(regularProducts || []).map(p => ({ ...p, type: 'product' })),
+        ...transformedEquipment
+      ]);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({
@@ -141,7 +192,16 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       const existingItem = prevCart.find(item => item.product.id === product.id);
       
       if (existingItem) {
-        // Check if adding one more would exceed available quantity
+        // For equipment items, they are unique and can only be added once
+        if (product.type === 'equipment') {
+          toast({
+            description: "Este equipamento já está no carrinho",
+            variant: "destructive"
+          });
+          return prevCart;
+        }
+        
+        // For regular products, check quantity
         if (existingItem.quantity + 1 > product.quantity_available) {
           toast({
             description: `Estoque insuficiente. Disponível: ${product.quantity_available} unidades`,
@@ -169,8 +229,17 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     const product = products.find(p => p.id === productId);
     if (!product) return;
     
-    // Ensure quantity is within available range
-    if (newQuantity > product.quantity_available) {
+    // For equipment items, quantity can only be 1
+    if (product.type === 'equipment' && newQuantity > 1) {
+      toast({
+        description: "Equipamentos únicos só podem ser solicitados em quantidade 1",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // For regular products, ensure quantity is within available range
+    if (product.type !== 'equipment' && newQuantity > product.quantity_available) {
       toast({
         description: `Estoque insuficiente. Disponível: ${product.quantity_available} unidades`,
         variant: "destructive"
@@ -233,7 +302,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
         order_id: orderId,
         product_id: item.product.id,
         quantity: item.quantity,
-        unit_price: item.product.price
+        unit_price: item.product.price,
       }));
       
       const { error: itemsError } = await supabase
@@ -264,6 +333,8 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
 
   // Calculate remaining stock for a product considering what's in cart
   const getRemainingStock = (product: Product) => {
+    if (product.type === 'equipment') return 1; // Equipment items are unique
+    
     const cartItem = cart.find(item => item.product.id === product.id);
     if (!cartItem) return product.quantity_available;
     return product.quantity_available - cartItem.quantity;
@@ -274,7 +345,22 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     const groups: { [key: string]: Product[] } = {};
     
     filteredProducts.forEach(product => {
-      const categoryName = categories.find(cat => cat.id === product.category)?.name || "Outros";
+      // Get appropriate category name
+      let categoryName = "Outros";
+      
+      if (product.type === 'equipment') {
+        // For equipment items
+        const equipmentCategory = product.category.replace('equipment_', '');
+        categoryName = 
+          equipmentCategory === 'server' ? 'Servidores' : 
+          equipmentCategory === 'network' ? 'Equipamento de Rede' : 
+          equipmentCategory === 'storage' ? 'Armazenamento' : 
+          'Outros Equipamentos';
+      } else {
+        // For regular products
+        categoryName = categories.find(cat => cat.id === product.category)?.name || "Outros";
+      }
+      
       if (!groups[categoryName]) {
         groups[categoryName] = [];
       }
@@ -282,6 +368,16 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     });
     
     return groups;
+  };
+
+  // Get appropriate icon for product based on type and category
+  const getProductIcon = (product: Product) => {
+    if (product.type === 'equipment') {
+      const category = product.category.replace('equipment_', '');
+      if (category === 'server') return <Server className="h-4 w-4 mr-2 text-blue-600" />;
+      return <Package className="h-4 w-4 mr-2 text-blue-600" />;
+    }
+    return <Package className="h-4 w-4 mr-2 text-muted-foreground" />;
   };
 
   return (
@@ -405,6 +501,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                               {categoryProducts.map(product => {
                                 const remainingStock = getRemainingStock(product);
                                 const inCart = cart.some(item => item.product.id === product.id);
+                                const isEquipment = product.type === 'equipment';
                                 
                                 return (
                                   <Card 
@@ -421,10 +518,18 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                                       <div className="p-4">
                                         <div className="flex items-start justify-between">
                                           <div>
-                                            <div className="font-medium">{product.name}</div>
+                                            <div className="flex items-center">
+                                              {getProductIcon(product)}
+                                              <span className="font-medium">{product.name}</span>
+                                              {isEquipment && (
+                                                <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">
+                                                  Equipamento
+                                                </Badge>
+                                              )}
+                                            </div>
                                             <div className="text-xs text-muted-foreground mt-1 flex items-center">
                                               <Badge variant="outline" className="mr-2 text-xs">
-                                                {product.sku}
+                                                {isEquipment ? 'SN: ' : ''}{product.sku}
                                               </Badge>
                                             </div>
                                           </div>
@@ -445,9 +550,10 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                                           <div className="flex items-center">
                                             <Archive className="h-4 w-4 mr-1 text-muted-foreground" />
                                             <span className={`text-sm font-medium ${
+                                              isEquipment ? 'text-purple-600' :
                                               remainingStock < 5 ? 'text-orange-600' : 'text-gray-600'
                                             }`}>
-                                              Disponível: {remainingStock}
+                                              {isEquipment ? 'Único' : `Disponível: ${remainingStock}`}
                                             </span>
                                           </div>
                                         </div>
@@ -513,68 +619,86 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                       </p>
                     </div>
                     
-                    {cart.map(item => (
-                      <Card key={item.product.id} className="overflow-hidden">
-                        <CardContent className="p-0">
-                          <div className="p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="flex items-center">
-                                  <div className="font-medium">{item.product.name}</div>
+                    {cart.map(item => {
+                      const isEquipment = item.product.type === 'equipment';
+                      return (
+                        <Card key={item.product.id} className="overflow-hidden">
+                          <CardContent className="p-0">
+                            <div className="p-4">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="flex items-center">
+                                    {getProductIcon(item.product)}
+                                    <div className="font-medium">{item.product.name}</div>
+                                    {isEquipment && (
+                                      <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">
+                                        Equipamento
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                                    <Badge variant="outline" className="text-xs">
+                                      {isEquipment ? 'SN: ' : ''}{item.product.sku}
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-1 font-medium text-blue-700">
+                                    {formatCurrency(item.product.price)} por unidade
+                                  </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.product.sku}
-                                  </Badge>
-                                </div>
-                                <div className="mt-1 font-medium text-blue-700">
-                                  {formatCurrency(item.product.price)} por unidade
-                                </div>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-red-500 hover:text-red-700 -mt-1"
-                                onClick={() => removeFromCart(item.product.id)}
-                              >
-                                <X size={18} />
-                              </Button>
-                            </div>
-                            
-                            <div className="mt-4 flex justify-between items-center bg-gray-50 p-2 rounded-md">
-                              <div className="flex items-center space-x-2">
                                 <Button 
-                                  variant="outline" 
+                                  variant="ghost" 
                                   size="sm" 
-                                  className="h-8 w-8 p-0 rounded-full"
-                                  onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                                  className="text-red-500 hover:text-red-700 -mt-1"
+                                  onClick={() => removeFromCart(item.product.id)}
                                 >
-                                  <MinusCircle size={14} />
-                                </Button>
-                                <span className="w-8 text-center font-medium">{item.quantity}</span>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="h-8 w-8 p-0 rounded-full"
-                                  onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                >
-                                  <PlusCircle size={14} />
+                                  <X size={18} />
                                 </Button>
                               </div>
                               
-                              <div className="text-right">
-                                <div className="font-semibold">
-                                  {formatCurrency(item.product.price * item.quantity)}
+                              <div className="mt-4 flex justify-between items-center bg-gray-50 p-2 rounded-md">
+                                <div className="flex items-center space-x-2">
+                                  {!isEquipment && (
+                                    <>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-8 w-8 p-0 rounded-full"
+                                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                                      >
+                                        <MinusCircle size={14} />
+                                      </Button>
+                                      <span className="w-8 text-center font-medium">{item.quantity}</span>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-8 w-8 p-0 rounded-full"
+                                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                                      >
+                                        <PlusCircle size={14} />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {isEquipment && (
+                                    <span className="text-sm font-medium">Quantidade: 1 (item único)</span>
+                                  )}
                                 </div>
-                                <div className="flex items-center text-xs text-muted-foreground">
-                                  <span>Disponível: {item.product.quantity_available}</span>
+                                
+                                <div className="text-right">
+                                  <div className="font-semibold">
+                                    {formatCurrency(item.product.price * item.quantity)}
+                                  </div>
+                                  {!isEquipment && (
+                                    <div className="flex items-center text-xs text-muted-foreground">
+                                      <span>Disponível: {item.product.quantity_available}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                     
                     <div className="border-t pt-4 mt-6">
                       <div className="flex justify-between items-center text-lg font-semibold bg-gray-50 p-3 rounded-md">
