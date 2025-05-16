@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
-import { MinusCircle, PlusCircle, X, Package, Archive, Layers, Search, Server } from "lucide-react";
+import { MinusCircle, PlusCircle, X, Package, Archive, Layers, Search, Server, List, BarChart4 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -35,6 +35,8 @@ interface Product {
   description: string | null;
   quantity_available: number;
   type?: string; // Added type field to distinguish between regular products and equipment
+  model?: string; // Added for equipment items
+  serial_number?: string; // Added for equipment items
 }
 
 interface Category {
@@ -45,6 +47,12 @@ interface Category {
 interface CartItem {
   product: Product;
   quantity: number;
+}
+
+// New interface to handle multiple equipment of the same model
+interface EquipmentGroup {
+  model: string;
+  items: Product[];
 }
 
 const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogProps) => {
@@ -58,6 +66,8 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   const [customerEmail, setCustomerEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [equipmentGroups, setEquipmentGroups] = useState<{ [model: string]: EquipmentGroup }>({});
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
   
   useEffect(() => {
     if (open) {
@@ -68,6 +78,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setCustomerName("");
       setCustomerEmail("");
       setSearchQuery("");
+      setViewMode("card");
     }
   }, [open]);
   
@@ -86,7 +97,9 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(query) || 
         p.sku?.toLowerCase().includes(query) || 
-        p.description?.toLowerCase().includes(query)
+        p.description?.toLowerCase().includes(query) ||
+        p.model?.toLowerCase().includes(query) ||
+        p.serial_number?.toLowerCase().includes(query)
       );
     }
     
@@ -168,8 +181,27 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
         price: item.current_value || 0,
         description: `Modelo: ${item.model}`,
         quantity_available: 1, // Equipment is unique, so only 1 available
-        type: 'equipment'
+        type: 'equipment',
+        model: item.model,
+        serial_number: item.serial_number
       })) || [];
+      
+      // Group equipment by model for the dropdown selection
+      const groups: { [model: string]: EquipmentGroup } = {};
+      
+      transformedEquipment.forEach(item => {
+        if (item.model) {
+          if (!groups[item.model]) {
+            groups[item.model] = {
+              model: item.model,
+              items: []
+            };
+          }
+          groups[item.model].items.push(item);
+        }
+      });
+      
+      setEquipmentGroups(groups);
       
       // Combine both products and equipment
       setProducts([
@@ -340,6 +372,13 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     return product.quantity_available - cartItem.quantity;
   };
 
+  // Check if we have multiple equipment of the same model
+  const hasMultipleEquipmentOfSameModel = (product: Product) => {
+    if (product.type !== 'equipment' || !product.model) return false;
+    const group = equipmentGroups[product.model];
+    return group && group.items.length > 1;
+  };
+
   // Group products by their category for organized display
   const groupedProducts = () => {
     const groups: { [key: string]: Product[] } = {};
@@ -435,7 +474,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                   <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                     <Input 
-                      placeholder="Buscar por nome, SKU ou descrição..." 
+                      placeholder="Buscar por nome, SKU, modelo ou número de série..." 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -459,6 +498,25 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant={viewMode === "card" ? "default" : "outline"} 
+                      size="icon" 
+                      className="w-9 h-9" 
+                      onClick={() => setViewMode("card")}
+                    >
+                      <BarChart4 size={16} />
+                    </Button>
+                    <Button 
+                      variant={viewMode === "list" ? "default" : "outline"} 
+                      size="icon" 
+                      className="w-9 h-9" 
+                      onClick={() => setViewMode("list")}
+                    >
+                      <List size={16} />
+                    </Button>
                   </div>
                 </div>
                 
@@ -497,27 +555,175 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                                 {categoryProducts.length} {categoryProducts.length === 1 ? 'item' : 'itens'}
                               </Badge>
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {categoryProducts.map(product => {
-                                const remainingStock = getRemainingStock(product);
-                                const inCart = cart.some(item => item.product.id === product.id);
-                                const isEquipment = product.type === 'equipment';
-                                
-                                return (
-                                  <Card 
-                                    key={product.id}
-                                    className={`overflow-hidden border transition-all ${
-                                      remainingStock === 0 
-                                        ? 'opacity-60' 
-                                        : inCart 
-                                          ? 'border-blue-300 shadow-md' 
-                                          : 'hover:border-gray-400'
-                                    }`}
-                                  >
-                                    <CardContent className="p-0">
-                                      <div className="p-4">
-                                        <div className="flex items-start justify-between">
-                                          <div>
+                            
+                            {viewMode === "card" ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {categoryProducts.map(product => {
+                                  const remainingStock = getRemainingStock(product);
+                                  const inCart = cart.some(item => item.product.id === product.id);
+                                  const isEquipment = product.type === 'equipment';
+                                  const hasMultiple = hasMultipleEquipmentOfSameModel(product);
+                                  
+                                  return (
+                                    <Card 
+                                      key={product.id}
+                                      className={`overflow-hidden border transition-all ${
+                                        remainingStock === 0 
+                                          ? 'opacity-60' 
+                                          : inCart 
+                                            ? 'border-blue-300 shadow-md' 
+                                            : 'hover:border-gray-400'
+                                      }`}
+                                    >
+                                      <CardContent className="p-0">
+                                        <div className="p-4">
+                                          <div className="flex items-start justify-between">
+                                            <div>
+                                              <div className="flex items-center">
+                                                {getProductIcon(product)}
+                                                <span className="font-medium">{product.name}</span>
+                                                {isEquipment && (
+                                                  <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">
+                                                    Equipamento
+                                                  </Badge>
+                                                )}
+                                                {hasMultiple && (
+                                                  <Badge className="ml-2 bg-amber-100 text-amber-800 text-xs">
+                                                    Múltiplos
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              <div className="text-xs text-muted-foreground mt-1 flex items-center">
+                                                <Badge variant="outline" className="mr-2 text-xs">
+                                                  {isEquipment ? 'SN: ' : ''}{product.sku}
+                                                </Badge>
+                                                {isEquipment && product.model && (
+                                                  <span className="text-xs text-gray-500">Modelo: {product.model}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            
+                                            {inCart && (
+                                              <Badge className="bg-blue-100 text-blue-800 text-xs">No carrinho</Badge>
+                                            )}
+                                          </div>
+                                          
+                                          {product.description && (
+                                            <div className="text-sm mt-2 text-gray-600 line-clamp-2">{product.description}</div>
+                                          )}
+                                          
+                                          <div className="mt-3 flex justify-between items-center">
+                                            <div className="font-semibold text-blue-700">
+                                              {formatCurrency(product.price)}
+                                            </div>
+                                            <div className="flex items-center">
+                                              <Archive className="h-4 w-4 mr-1 text-muted-foreground" />
+                                              <span className={`text-sm font-medium ${
+                                                isEquipment ? 'text-purple-600' :
+                                                remainingStock < 5 ? 'text-orange-600' : 'text-gray-600'
+                                              }`}>
+                                                {isEquipment ? 'Único' : `Disponível: ${remainingStock}`}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="border-t p-2 bg-gray-50 flex items-center justify-between">
+                                          {hasMultiple ? (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button 
+                                                  variant="default" 
+                                                  size="sm"
+                                                  className="bg-blue-600 hover:bg-blue-700"
+                                                >
+                                                  Selecionar equipamento
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent className="w-56">
+                                                {product.model && equipmentGroups[product.model]?.items.map(item => (
+                                                  <DropdownMenuItem 
+                                                    key={item.id} 
+                                                    className="cursor-pointer"
+                                                    onClick={() => addToCart(item)}
+                                                    disabled={cart.some(cartItem => cartItem.product.id === item.id)}
+                                                  >
+                                                    <div className="flex flex-col">
+                                                      <span>S/N: {item.serial_number}</span>
+                                                      <span className="text-xs text-gray-500">{item.name}</span>
+                                                    </div>
+                                                    {cart.some(cartItem => cartItem.product.id === item.id) && (
+                                                      <Badge className="ml-auto bg-blue-100 text-blue-800 text-xs">
+                                                        Selecionado
+                                                      </Badge>
+                                                    )}
+                                                  </DropdownMenuItem>
+                                                ))}
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          ) : (
+                                            <Button 
+                                              variant={remainingStock > 0 ? "default" : "outline"} 
+                                              size="sm"
+                                              className={`${remainingStock > 0 ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                                              onClick={() => addToCart(product)}
+                                              disabled={remainingStock === 0}
+                                            >
+                                              {inCart ? 'Adicionar mais um' : 'Adicionar ao pedido'}
+                                            </Button>
+                                          )}
+                                          
+                                          {inCart && !hasMultiple && (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm">Opções</Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => removeFromCart(product.id)}>
+                                                  <X className="h-4 w-4 mr-2 text-red-500" />
+                                                  Remover do pedido
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          )}
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="border rounded-md overflow-hidden">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Nome
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Identificação
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Preço
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Disponibilidade
+                                      </th>
+                                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Ações
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {categoryProducts.map(product => {
+                                      const remainingStock = getRemainingStock(product);
+                                      const inCart = cart.some(item => item.product.id === product.id);
+                                      const isEquipment = product.type === 'equipment';
+                                      const hasMultiple = hasMultipleEquipmentOfSameModel(product);
+                                      
+                                      return (
+                                        <tr key={product.id} className={inCart ? 'bg-blue-50' : ''}>
+                                          <td className="px-4 py-3 whitespace-nowrap">
                                             <div className="flex items-center">
                                               {getProductIcon(product)}
                                               <span className="font-medium">{product.name}</span>
@@ -526,69 +732,101 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                                                   Equipamento
                                                 </Badge>
                                               )}
+                                              {hasMultiple && (
+                                                <Badge className="ml-2 bg-amber-100 text-amber-800 text-xs">
+                                                  Múltiplos
+                                                </Badge>
+                                              )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground mt-1 flex items-center">
-                                              <Badge variant="outline" className="mr-2 text-xs">
-                                                {isEquipment ? 'SN: ' : ''}{product.sku}
-                                              </Badge>
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap">
+                                            <div className="text-sm text-gray-900">
+                                              {isEquipment ? 'SN: ' : ''}{product.sku}
                                             </div>
-                                          </div>
-                                          
-                                          {inCart && (
-                                            <Badge className="bg-blue-100 text-blue-800 text-xs">No carrinho</Badge>
-                                          )}
-                                        </div>
-                                        
-                                        {product.description && (
-                                          <div className="text-sm mt-2 text-gray-600 line-clamp-2">{product.description}</div>
-                                        )}
-                                        
-                                        <div className="mt-3 flex justify-between items-center">
-                                          <div className="font-semibold text-blue-700">
-                                            {formatCurrency(product.price)}
-                                          </div>
-                                          <div className="flex items-center">
-                                            <Archive className="h-4 w-4 mr-1 text-muted-foreground" />
-                                            <span className={`text-sm font-medium ${
+                                            {isEquipment && product.model && (
+                                              <div className="text-xs text-gray-500">
+                                                Modelo: {product.model}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap">
+                                            <div className="text-sm font-medium text-blue-700">
+                                              {formatCurrency(product.price)}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className={`inline-flex text-sm font-medium ${
                                               isEquipment ? 'text-purple-600' :
                                               remainingStock < 5 ? 'text-orange-600' : 'text-gray-600'
                                             }`}>
                                               {isEquipment ? 'Único' : `Disponível: ${remainingStock}`}
                                             </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="border-t p-2 bg-gray-50 flex items-center justify-between">
-                                        <Button 
-                                          variant={remainingStock > 0 ? "default" : "outline"} 
-                                          size="sm"
-                                          className={`${remainingStock > 0 ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                                          onClick={() => addToCart(product)}
-                                          disabled={remainingStock === 0}
-                                        >
-                                          {inCart ? 'Adicionar mais um' : 'Adicionar ao pedido'}
-                                        </Button>
-                                        
-                                        {inCart && (
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button variant="ghost" size="sm">Opções</Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent>
-                                              <DropdownMenuItem onClick={() => removeFromCart(product.id)}>
-                                                <X className="h-4 w-4 mr-2 text-red-500" />
-                                                Remover do pedido
-                                              </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        )}
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                );
-                              })}
-                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-right">
+                                            {hasMultiple ? (
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button 
+                                                    variant="default" 
+                                                    size="sm"
+                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                  >
+                                                    Selecionar
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-56">
+                                                  {product.model && equipmentGroups[product.model]?.items.map(item => (
+                                                    <DropdownMenuItem 
+                                                      key={item.id} 
+                                                      className="cursor-pointer"
+                                                      onClick={() => addToCart(item)}
+                                                      disabled={cart.some(cartItem => cartItem.product.id === item.id)}
+                                                    >
+                                                      <div className="flex flex-col">
+                                                        <span>S/N: {item.serial_number}</span>
+                                                        <span className="text-xs text-gray-500">{item.name}</span>
+                                                      </div>
+                                                      {cart.some(cartItem => cartItem.product.id === item.id) && (
+                                                        <Badge className="ml-auto bg-blue-100 text-blue-800 text-xs">
+                                                          Selecionado
+                                                        </Badge>
+                                                      )}
+                                                    </DropdownMenuItem>
+                                                  ))}
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+                                            ) : (
+                                              <div className="flex justify-end space-x-2">
+                                                <Button 
+                                                  variant={remainingStock > 0 ? "default" : "outline"} 
+                                                  size="sm"
+                                                  className={`${remainingStock > 0 ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                                                  onClick={() => addToCart(product)}
+                                                  disabled={remainingStock === 0}
+                                                >
+                                                  {inCart ? '+1' : 'Adicionar'}
+                                                </Button>
+                                                
+                                                {inCart && (
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    className="text-red-600 border-red-200 hover:bg-red-50"
+                                                    onClick={() => removeFromCart(product.id)}
+                                                  >
+                                                    <X size={16} />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -640,6 +878,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                                     <Badge variant="outline" className="text-xs">
                                       {isEquipment ? 'SN: ' : ''}{item.product.sku}
                                     </Badge>
+                                    {isEquipment && item.product.model && (
+                                      <span className="ml-2 text-xs text-gray-500">
+                                        Modelo: {item.product.model}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="mt-1 font-medium text-blue-700">
                                     {formatCurrency(item.product.price)} por unidade
