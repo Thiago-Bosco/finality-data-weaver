@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
-import { MinusCircle, PlusCircle, X } from "lucide-react";
+import { MinusCircle, PlusCircle, X, Package, Archive } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -49,6 +50,7 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   useEffect(() => {
     if (open) {
@@ -58,16 +60,31 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setSelectedCategory("all");
       setCustomerName("");
       setCustomerEmail("");
+      setSearchQuery("");
     }
   }, [open]);
   
   useEffect(() => {
-    if (selectedCategory === "all") {
-      setFilteredProducts(products.filter(p => p.quantity_available > 0));
-    } else {
-      setFilteredProducts(products.filter(p => p.category === selectedCategory && p.quantity_available > 0));
+    // Apply both category filtering and search filtering
+    let filtered = products.filter(p => p.quantity_available > 0);
+    
+    // Apply category filter
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(p => p.category === selectedCategory);
     }
-  }, [selectedCategory, products]);
+    
+    // Apply search filter if there's a search query
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.sku.toLowerCase().includes(query) || 
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredProducts(filtered);
+  }, [selectedCategory, products, searchQuery]);
   
   const fetchCategories = async () => {
     setIsLoading(true);
@@ -82,7 +99,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast('Erro ao carregar categorias');
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar categorias",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +122,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast('Erro ao carregar produtos');
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar produtos",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +139,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       if (existingItem) {
         // Check if adding one more would exceed available quantity
         if (existingItem.quantity + 1 > product.quantity_available) {
-          toast.error(`Estoque insuficiente. Disponível: ${product.quantity_available}`);
+          toast({
+            title: "Estoque insuficiente",
+            description: `Disponível: ${product.quantity_available} unidades`,
+            variant: "destructive"
+          });
           return prevCart;
         }
         
@@ -139,7 +168,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
     
     // Ensure quantity is within available range
     if (newQuantity > product.quantity_available) {
-      toast.error(`Estoque insuficiente. Disponível: ${product.quantity_available}`);
+      toast({
+        title: "Estoque insuficiente",
+        description: `Disponível: ${product.quantity_available} unidades`,
+        variant: "destructive"
+      });
       return;
     }
     
@@ -159,12 +192,20 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   
   const handleSubmitOrder = async () => {
     if (!customerName) {
-      toast('Nome do cliente é obrigatório');
+      toast({
+        title: "Atenção",
+        description: "Nome do cliente é obrigatório",
+        variant: "destructive"
+      });
       return;
     }
     
     if (cart.length === 0) {
-      toast('Adicione pelo menos um item ao pedido');
+      toast({
+        title: "Atenção",
+        description: "Adicione pelo menos um item ao pedido",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -201,12 +242,19 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
       
       if (itemsError) throw itemsError;
       
-      toast('Pedido criado com sucesso! Aguardando aprovação.');
+      toast({
+        title: "Sucesso",
+        description: "Pedido criado com sucesso! Aguardando aprovação.",
+      });
       onOpenChange(false);
       onOrderCreated();
     } catch (error) {
       console.error('Error creating order:', error);
-      toast('Erro ao criar pedido. Tente novamente.');
+      toast({
+        title: "Erro",
+        description: "Erro ao criar pedido. Tente novamente.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -214,6 +262,13 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
   
   const calculateTotal = () => {
     return cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  };
+
+  // Calculate remaining stock for a product considering what's in cart
+  const getRemainingStock = (product: Product) => {
+    const cartItem = cart.find(item => item.product.id === product.id);
+    if (!cartItem) return product.quantity_available;
+    return product.quantity_available - cartItem.quantity;
   };
 
   return (
@@ -248,32 +303,46 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
           <div className="border rounded-md">
             <Tabs defaultValue="products" className="w-full">
               <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="products">Produtos</TabsTrigger>
+                <TabsTrigger value="products">Produtos Disponíveis</TabsTrigger>
                 <TabsTrigger value="cart">
                   Carrinho 
                   <Badge variant="secondary" className="ml-2">{cart.length}</Badge>
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="products" className="p-4">
-                <div className="mb-4">
-                  <Label htmlFor="category">Filtrar por Categoria</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Todas as categorias" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as categorias</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  {/* Search input */}
+                  <div>
+                    <Label htmlFor="search">Buscar Produtos</Label>
+                    <Input 
+                      id="search"
+                      placeholder="Digite para buscar por nome, SKU ou descrição"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* Category filter */}
+                  <div>
+                    <Label htmlFor="category">Filtrar por Categoria</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger id="category">
+                        <SelectValue placeholder="Todas as categorias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 {isLoading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     {[1, 2, 3, 4].map(i => (
                       <Card key={i}>
                         <CardContent className="p-4">
@@ -288,40 +357,59 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                   <>
                     {filteredProducts.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
-                        {selectedCategory ? 
-                          "Nenhum produto disponível nesta categoria." :
-                          "Nenhum produto disponível em estoque."
+                        {searchQuery ? 
+                          "Nenhum produto encontrado com os critérios de busca." :
+                          selectedCategory !== "all" ? 
+                            "Nenhum produto disponível nesta categoria." :
+                            "Nenhum produto disponível em estoque."
                         }
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filteredProducts.map(product => (
-                          <Card key={product.id} className="overflow-hidden">
-                            <CardContent className="p-0">
-                              <div className="p-4">
-                                <div className="font-medium">{product.name}</div>
-                                <div className="text-sm text-muted-foreground">{product.sku}</div>
-                                <div className="mt-1 flex justify-between items-center">
-                                  <div className="font-semibold">
-                                    {formatCurrency(product.price)}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        {filteredProducts.map(product => {
+                          const remainingStock = getRemainingStock(product);
+                          
+                          return (
+                            <Card key={product.id} className={`overflow-hidden ${remainingStock === 0 ? 'opacity-60' : ''}`}>
+                              <CardContent className="p-0">
+                                <div className="p-4">
+                                  <div className="flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-muted-foreground" />
+                                    <div className="font-medium">{product.name}</div>
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Disponível: {product.quantity_available}
+                                  
+                                  <div className="text-sm text-muted-foreground mt-1">{product.sku}</div>
+                                  
+                                  {product.description && (
+                                    <div className="text-sm mt-1">{product.description}</div>
+                                  )}
+                                  
+                                  <div className="mt-2 flex justify-between items-center">
+                                    <div className="font-semibold">
+                                      {formatCurrency(product.price)}
+                                    </div>
+                                    <div className="flex items-center">
+                                      <Archive className="h-4 w-4 mr-1 text-muted-foreground" />
+                                      <span className={`text-sm font-medium ${remainingStock < 5 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                                        Disponível: {remainingStock}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="border-t p-2">
-                                <Button 
-                                  variant="ghost" 
-                                  className="w-full hover:bg-primary hover:text-primary-foreground" 
-                                  onClick={() => addToCart(product)}
-                                >
-                                  Adicionar ao Pedido
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                                <div className="border-t p-2">
+                                  <Button 
+                                    variant={remainingStock > 0 ? "ghost" : "outline"} 
+                                    className={`w-full ${remainingStock > 0 ? 'hover:bg-primary hover:text-primary-foreground' : ''}`}
+                                    onClick={() => addToCart(product)}
+                                    disabled={remainingStock === 0}
+                                  >
+                                    {remainingStock > 0 ? 'Adicionar ao Pedido' : 'Sem estoque disponível'}
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -338,7 +426,10 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                       <div key={item.product.id} className="border rounded-md p-4">
                         <div className="flex justify-between items-start">
                           <div>
-                            <div className="font-medium">{item.product.name}</div>
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                              <div className="font-medium">{item.product.name}</div>
+                            </div>
                             <div className="text-sm text-muted-foreground">{item.product.sku}</div>
                             <div className="mt-1 font-semibold">
                               {formatCurrency(item.product.price)} por unidade
@@ -377,8 +468,11 @@ const NewOrderDialog = ({ open, onOpenChange, onOrderCreated }: NewOrderDialogPr
                             <div className="font-semibold">
                               {formatCurrency(item.product.price * item.quantity)}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              Disponível: {item.product.quantity_available}
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <Archive className="h-3 w-3 mr-1" />
+                              <span>Disponível: {item.product.quantity_available}</span>
+                              <span className="mx-1">|</span>
+                              <span>Selecionado: {item.quantity}</span>
                             </div>
                           </div>
                         </div>
