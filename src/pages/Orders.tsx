@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +20,7 @@ import {
   XCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -131,7 +130,10 @@ const Orders = () => {
       });
     } catch (error) {
       console.error('Error fetching orders:', error);
-      toast.error('Erro ao carregar pedidos');
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar pedidos"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -150,11 +152,17 @@ const Orders = () => {
       
       if (error) throw error;
       
-      toast.success('Pedido aprovado com sucesso');
+      toast({
+        title: "Sucesso",
+        description: "Pedido aprovado com sucesso"
+      });
       fetchOrders();
     } catch (error) {
       console.error('Error approving order:', error);
-      toast.error('Erro ao aprovar pedido');
+      toast({
+        title: "Erro",
+        description: "Erro ao aprovar pedido"
+      });
     }
   };
 
@@ -167,11 +175,17 @@ const Orders = () => {
       
       if (error) throw error;
       
-      toast.success('Pedido rejeitado');
+      toast({
+        title: "Sucesso",
+        description: "Pedido rejeitado"
+      });
       fetchOrders();
     } catch (error) {
       console.error('Error rejecting order:', error);
-      toast.error('Erro ao rejeitar pedido');
+      toast({
+        title: "Erro",
+        description: "Erro ao rejeitar pedido"
+      });
     }
   };
 
